@@ -1,0 +1,102 @@
+---
+- name: Configure Security Policy on Palo Alto Firewall
+  hosts: paloalto
+  gather_facts: no
+  collections:
+    - paloaltonetworks.panos
+  vars:
+    policy_name: "Allow-HTTPS-Traffic"
+    source_zone: "untrust"
+    destination_zone: "trust"
+    source_ip: "0.0.0.0/0"
+    destination_ip: "192.168.1.0/24"
+    application: "ssl"
+    action: "allow"
+  tasks:
+    - name: Create Security Policy
+      panos_security_rule:
+        provider:
+          ip_address: "{{ ansible_host }}"
+          username: "{{ username }}"
+          password: "{{ password }}"
+          api_key: "{{ api_key }}"
+        rule_name: "{{ policy_name }}"
+        description: "Allow HTTPS traffic from untrust to trust zone"
+        source_zone: "{{ source_zone }}"
+        destination_zone: "{{ destination_zone }}"
+        source_ip: "{{ source_ip }}"
+        destination_ip: "{{ destination_ip }}"
+        application: "{{ application }}"
+        action: "{{ action }}"
+        commit: true
+
+
+Explanation
+provider: Defines the connection parameters (IP, username, password, or API key).
+rule_name: The name of the security policy rule.
+source_zone and destination_zone: Define the traffic zones.
+source_ip and destination_ip: Specify the IP range for the rule.
+application: Specifies the application (in this case, HTTPS).
+action: Sets the action to "allow" or "deny" traffic.
+commit: When true, commits the changes to the firewall.
+
+
+
+---
+- name: Initial Configuration on Palo Alto Firewall
+  hosts: paloalto
+  gather_facts: no
+  collections:
+    - paloaltonetworks.panos
+  vars:
+    hostname: "PaloAlto-FW"
+    dns_primary: "8.8.8.8"
+    dns_secondary: "8.8.4.4"
+    mgmt_ip: "192.168.1.1"
+    mgmt_netmask: "255.255.255.0"
+    mgmt_gateway: "192.168.1.254"
+  tasks:
+    - name: Set Hostname
+      panos_system:
+        provider:
+          ip_address: "{{ ansible_host }}"
+          username: "{{ username }}"
+          password: "{{ password }}"
+          api_key: "{{ api_key }}"
+        hostname: "{{ hostname }}"
+    
+    - name: Configure DNS Servers
+      panos_op:
+        provider:
+          ip_address: "{{ ansible_host }}"
+          username: "{{ username }}"
+          password: "{{ password }}"
+          api_key: "{{ api_key }}"
+        cmd: |
+          configure
+          set deviceconfig system dns-setting servers primary {{ dns_primary }}
+          set deviceconfig system dns-setting servers secondary {{ dns_secondary }}
+          commit
+    
+    - name: Configure Management Interface
+      panos_interface:
+        provider:
+          ip_address: "{{ ansible_host }}"
+          username: "{{ username }}"
+          password: "{{ password }}"
+          api_key: "{{ api_key }}"
+        if_name: "ethernet1/1"
+        mode: "layer3"
+        ip: "{{ mgmt_ip }}"
+        netmask: "{{ mgmt_netmask }}"
+    
+    - name: Set Default Gateway for Management Interface
+      panos_static_route:
+        provider:
+          ip_address: "{{ ansible_host }}"
+          username: "{{ username }}"
+          password: "{{ password }}"
+          api_key: "{{ api_key }}"
+        destination: "0.0.0.0/0"
+        nexthop: "{{ mgmt_gateway }}"
+        commit: true
